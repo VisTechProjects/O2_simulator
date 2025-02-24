@@ -1,4 +1,4 @@
-# O2 catalytic converter simulator Teensy/ESP32 PIO
+# O2 catalytic converter simulator Arduino/Teensy/ESP32 PIO
 
 ## Description
 Deleted your catalytic converter for "off road use"? Have a p0420/p0430 check engine code? This project simulates O2 sensor readings using a Teensy or esp32 (or arduino) and resolved that issue by simulating a proper o2 signal. Works for single or multiple sensors(connect all sensors to sim ouput).
@@ -9,7 +9,7 @@ Deleted your catalytic converter for "off road use"? Have a p0420/p0430 check en
 
 ![O2 simulator](/o2_output.jpg)
 
-[^1]: Voltage and time durration adjustments
+[^1]: Voltage and time durration adjustment (Adjustable in **[config.h](./src/config.h)** file📄)
 
 ```cpp
 // Configurable parameters for the signal simulation
