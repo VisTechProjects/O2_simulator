@@ -1,15 +1,37 @@
 // Configurable parameters for the signal simulation
-const float maxVoltage = 0.8;  // Target voltage (0.8V)
-const float minVoltage = 0.0;  // Off voltage (0V)
-const float riseTime = 0.7;    // Rise time in seconds
-const float fallTime = 1.1;    // Fall time in seconds
+// These can be adjusted via web interface at runtime
 
-// Configurable range for hold and off times
-const float minOnTime = 1.25;  // Minimum hold time in seconds
-const float maxOnTime = 10;  // Maximum hold time in seconds
-const float minOffTime = 1.25;   // Minimum off time in seconds
-const float maxOffTime = 5;   // Maximum off time in seconds
+// WiFi settings
+// Set WIFI_MODE to "AP" for access point or "STA" for connecting to existing network
+// #define WIFI_MODE "AP"
+#define WIFI_MODE "STA"
 
+// Access Point mode settings (when WIFI_MODE is "AP")
+const char* AP_SSID = "O2_Simulator";
+const char* AP_PASS = "";  // Empty = open network (no password)
 
-const float dacMaxVoltage = 3.3;  // Maximum DAC output voltage (3.3V)
-const int dacResolution = 4095;  // 12-bit DAC resolution
+// Station mode settings (when WIFI_MODE is "STA")
+const char* STA_SSID = "YourWiFiSSID";
+const char* STA_PASS = "YourWiFiPassword";
+
+// mDNS hostname (access via http://o2sim.local)
+const char* MDNS_NAME = "o2sim";
+
+// Voltage range: Real downstream O2 sensors typically swing 0.1-0.9V
+struct Config {
+  float maxVoltage = 0.8;    // Rich signal (typical: 0.7-0.9V)
+  float minVoltage = 0.0;    // Lean signal (typical: 0.1-0.2V)
+  float riseTime = 0.7;      // Rise time in seconds (realistic: 1.0-2.0s)
+  float fallTime = 1.1;      // Fall time in seconds (realistic: 1.0-2.0s)
+  float minHighTime = 1.25;  // Minimum time at high voltage
+  float maxHighTime = 10.0;  // Maximum time at high voltage
+  float minLowTime = 1.25;   // Minimum time at low voltage
+  float maxLowTime = 5.0;    // Maximum time at low voltage
+  float safetyMargin = 5.0;  // Extra seconds before forcing state transition
+};
+
+// Hardware settings
+const int OUTPUT_PIN = 25;       // ESP32 DAC pin (GPIO25 or GPIO26)
+const int PWM_FREQ = 5000;       // PWM frequency for RC filter
+const int PWM_RESOLUTION = 12;   // 12-bit resolution (0-4095)
+const float DAC_MAX_VOLTAGE = 3.3;

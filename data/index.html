@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>O2 Simulator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="sticky-header">
+    <div class="header-row">
+      <h1>O2 Sensor Simulator</h1>
+      <button id="toggleBtn" class="btn-toggle" onclick="toggleOutput()">ON</button>
+    </div>
+    <div class="status">Output: <span id="voltage">0.00</span> V <span class="pin-label">(GPIO25)</span> <span id="outputStatus" class="output-active">Active</span></div>
+
+    <div class="graph-label">Live</div>
+    <canvas id="liveTrace" title="Double-click to toggle colors"></canvas>
+
+    <div class="graph-label">Preview</div>
+    <canvas id="waveform"></canvas>
+  </div>
+
+  <div class="container">
+    <details class="settings-panel">
+      <summary>Settings</summary>
+      <div class="settings-content">
+        <div class="settings-scroll">
+          <h2>Voltage</h2>
+          <div class="grid">
+            <div class="form-group">
+              <label>Min Voltage (V)</label>
+              <input type="number" id="minVoltage" step="0.1" min="0" max="1" inputmode="decimal" title="Lean signal voltage (typical 0.1-0.2V)">
+            </div>
+            <div class="form-group">
+              <label>Max Voltage (V)</label>
+              <input type="number" id="maxVoltage" step="0.1" min="0" max="1" inputmode="decimal" title="Rich signal voltage (typical 0.7-0.9V)">
+            </div>
+          </div>
+
+          <h2>Transition Times</h2>
+          <div class="grid">
+            <div class="form-group">
+              <label class="color-rise">Rise Time (Sec)</label>
+              <input type="number" id="riseTime" step="0.1" min="0.1" max="10" inputmode="decimal" title="Time to transition from low to high voltage">
+            </div>
+            <div class="form-group">
+              <label class="color-fall">Fall Time (Sec)</label>
+              <input type="number" id="fallTime" step="0.1" min="0.1" max="10" inputmode="decimal" title="Time to transition from high to low voltage">
+            </div>
+          </div>
+
+          <h2>Hold Times</h2>
+          <div class="grid">
+            <div class="form-group">
+              <label class="color-high">Min High (Sec)</label>
+              <input type="number" id="minHighTime" step="0.25" min="0.25" max="30" inputmode="decimal" title="Minimum time to hold at high voltage (random between min/max)">
+            </div>
+            <div class="form-group">
+              <label class="color-high">Max High (Sec)</label>
+              <input type="number" id="maxHighTime" step="0.25" min="0.25" max="30" inputmode="decimal" title="Maximum time to hold at high voltage (random between min/max)">
+            </div>
+            <div class="form-group">
+              <label class="color-low">Min Low (Sec)</label>
+              <input type="number" id="minLowTime" step="0.25" min="0.25" max="30" inputmode="decimal" title="Minimum time to hold at low voltage (random between min/max)">
+            </div>
+            <div class="form-group">
+              <label class="color-low">Max Low (Sec)</label>
+              <input type="number" id="maxLowTime" step="0.25" min="0.25" max="30" inputmode="decimal" title="Maximum time to hold at low voltage (random between min/max)">
+            </div>
+          </div>
+
+          <h2>Presets</h2>
+          <div class="preset-buttons">
+            <button onclick="loadPreset('normal')" class="btn-preset">Normal</button>
+            <button onclick="loadPreset('aggressive')" class="btn-preset">Aggressive</button>
+            <button onclick="loadPreset('slow')" class="btn-preset">Slow</button>
+          </div>
+
+          <h2>Config</h2>
+          <div class="config-buttons">
+            <button onclick="exportConfig()" class="btn-export">Export</button>
+            <button onclick="document.getElementById('importFile').click()" class="btn-import">Import</button>
+            <input type="file" id="importFile" accept=".json" onchange="importConfig(this)" style="display:none">
+          </div>
+        </div>
+
+        <div class="settings-footer">
+          <div class="footer-left">
+            <a href="/firmware" class="btn-firmware">FW Update</a>
+            <span class="version-info" id="versionInfo">v--</span>
+          </div>
+          <div class="btn-group-right">
+            <button onclick="loadConfig()" class="btn-secondary">Reset</button>
+            <button onclick="applyConfig()">Apply</button>
+          </div>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

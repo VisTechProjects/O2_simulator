@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>OTA Firmware Update - O2 Simulator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style_firmware_update.css">
+  <script src="script_firmware_update.js"></script>
+  <link rel="icon" href="data:,">
+</head>
+
+<body>
+
+  <div class="container">
+    <h2>OTA Firmware Update</h2>
+    <p class="subtitle">O2 Sensor Simulator</p>
+
+    <div class="warning-box">
+      <strong>Note:</strong> It is recommended to switch your vehicle to ACC mode (engine off) before updating.
+      The simulator output will be disabled during the update process.
+    </div>
+
+    <div class="upload-area" id="drop-area">
+      <p>
+        Drag & drop <strong><code>firmware.bin</code></strong> or <strong><code>spiffs.bin</code></strong> file
+        here<br />
+        or <strong>click to browse</strong>
+      </p>
+    </div>
+    <input type="file" id="file_input" accept=".bin" />
+
+    <div class="progress-container" id="progress_container">
+      <div class="progress-bar" id="progress_bar"></div>
+    </div>
+
+    <div id="status">Awaiting file...</div>
+
+    <br>
+    <a href="/" class="back-link">&larr; Back to Main</a>
+  </div>
+
+</body>
+
+</html>
