@@ -1,0 +1,9 @@
+# Build artifacts
+.pio/
+.vscode/
+
+# IDE
+.claude/
+
+# Config with real credentials (use config.h.example as template)
+src/config.h
