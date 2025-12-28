@@ -481,9 +481,27 @@ void setup() {
   }
 
   // Setup WiFi
-  if (String(WIFI_MODE) == "STA") {
-    // Connect to existing network
-    WiFi.mode(WIFI_STA);
+  if (String(WIFI_MODE) == "AP+STA" || String(WIFI_MODE) == "STA") {
+    // Connect to existing network (with optional AP)
+    bool dualMode = String(WIFI_MODE) == "AP+STA";
+
+    if (dualMode) {
+      WiFi.mode(WIFI_AP_STA);
+      // Start AP first
+      if (strlen(AP_PASS) > 0) {
+        WiFi.softAP(AP_SSID, AP_PASS);
+      } else {
+        WiFi.softAP(AP_SSID);
+      }
+      Serial.print("AP started: ");
+      Serial.print(AP_SSID);
+      Serial.print(" (");
+      Serial.print(WiFi.softAPIP());
+      Serial.println(")");
+    } else {
+      WiFi.mode(WIFI_STA);
+    }
+
     WiFi.begin(STA_SSID, STA_PASS);
     Serial.print("Connecting to ");
     Serial.print(STA_SSID);
@@ -506,8 +524,8 @@ void setup() {
         Serial.print(MDNS_NAME);
         Serial.println(".local");
       }
-    } else {
-      // Fallback to AP mode if connection fails
+    } else if (!dualMode) {
+      // Fallback to AP mode if STA-only connection fails
       Serial.println(" Failed! Starting AP mode instead.");
       WiFi.mode(WIFI_AP);
       WiFi.softAP(AP_SSID);
@@ -515,9 +533,11 @@ void setup() {
       Serial.println(AP_SSID);
       Serial.print("IP: ");
       Serial.println(WiFi.softAPIP());
+    } else {
+      Serial.println(" Failed to connect to WiFi, but AP is still running.");
     }
   } else {
-    // Access Point mode
+    // Access Point only mode
     WiFi.mode(WIFI_AP);
     if (strlen(AP_PASS) > 0) {
       WiFi.softAP(AP_SSID, AP_PASS);

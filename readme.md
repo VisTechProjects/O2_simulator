@@ -46,13 +46,17 @@ Deleted your catalytic converter for "off road use"? Have a P0420/P0430 check en
 
 ## WiFi Modes
 
-**Station Mode (default)** - Connects to your existing WiFi network
+Edit `WIFI_MODE` in `config.h`:
 
-**AP Mode** - Creates its own hotspot. Edit `config.h`:
-```cpp
-#define WIFI_MODE "AP"
-```
-Then connect to `O2_Simulator` network and go to `192.168.4.1`
+| Mode | Description |
+|------|-------------|
+| `STA` | Station only - connects to your existing WiFi network |
+| `AP` | Access Point only - creates hotspot at `192.168.4.1` |
+| `AP+STA` | Both! Connects to WiFi AND creates hotspot for direct access |
+
+**AP+STA mode** is ideal for in-vehicle use - connect to home WiFi for setup, then access directly via phone hotspot (`192.168.4.1`) when on the road.
+
+Note: mDNS (`o2sim.local`) only works via your home WiFi, not on the AP hotspot.
 
 ## Default Parameters
 
@@ -62,10 +66,12 @@ Then connect to `O2_Simulator` network and go to `192.168.4.1`
 | Min Voltage | 0.0V | Lean signal (typical 0.1-0.2V) |
 | Rise Time | 0.7s | Transition low to high |
 | Fall Time | 1.1s | Transition high to low |
-| Min High Time | 1.25s | Minimum hold at high voltage |
-| Max High Time | 10s | Maximum hold at high voltage |
-| Min Low Time | 1.25s | Minimum hold at low voltage |
-| Max Low Time | 5s | Maximum hold at low voltage |
+| Min High Time | 1.25s | Minimum hold at high voltage* |
+| Max High Time | 10s | Maximum hold at high voltage* |
+| Min Low Time | 1.25s | Minimum hold at low voltage* |
+| Max Low Time | 5s | Maximum hold at low voltage* |
+
+*Hold times are randomized between min and max values each cycle for realistic variation. Set min and max to the same value if you want fixed (non-random) timing.
 
 ## OTA Firmware Update
 
@@ -75,8 +81,8 @@ Then connect to `O2_Simulator` network and go to `192.168.4.1`
 
 ## Tips
 - Double-click the live graph to toggle between colored and solid green trace
-- Use AP mode if you need the simulator to work without an existing network
-- Export your config before updating SPIFFS to preserve settings
+- Use AP+STA mode for best flexibility - WiFi at home, direct hotspot in vehicle
+- Settings persist automatically in flash memory across power cycles and firmware updates
 
 ## Original Signal Output
 ![O2 simulator output](/o2_output.jpg)

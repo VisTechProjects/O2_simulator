@@ -2,9 +2,11 @@
 // These can be adjusted via web interface at runtime
 
 // WiFi settings
-// Set WIFI_MODE to "AP" for access point or "STA" for connecting to existing network
-// #define WIFI_MODE "AP"
-#define WIFI_MODE "STA"
+// WIFI_MODE options:
+//   "STA"    - Connect to existing WiFi only (default)
+//   "AP"     - Create hotspot only (192.168.4.1)
+//   "AP+STA" - Both! Connect to WiFi AND create hotspot for direct phone access
+#define WIFI_MODE "AP+STA"
 
 // Access Point mode settings (when WIFI_MODE is "AP")
 const char* AP_SSID = "O2_Simulator";
