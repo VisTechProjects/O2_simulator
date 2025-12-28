@@ -8,8 +8,8 @@ unsigned long previousMillis = 0;
 float outputVoltage = 0.0;
 int state = 0;  // 0: Off, 1: Rising, 2: Hold, 3: Falling
 
-float onTime = 2.0;  // Randomized on time place holder
-float offTime = 2.0;   // Randomized off time place holder
+float highTime = 2.0;  // Randomized high voltage duration
+float lowTime = 2.0;   // Randomized low voltage duration
 
 // Function to scale random values with nonlinear distribution
 float scaledRandom(float minVal, float maxVal) {
@@ -20,13 +20,21 @@ float scaledRandom(float minVal, float maxVal) {
 
 void setup() {
   analogWriteResolution(12);  // Set DAC resolution to 12 bits
+  analogWrite(outputPin, 0);  // Force 0V output immediately at boot
   pinMode(LED_BUILTIN,OUTPUT);
 
-  Serial.begin(9600);
-  Serial.println("Signal Simulation Started");
+  #ifdef debug
+    Serial.begin(9600);
+    Serial.println("Signal Simulation Started");
+  #endif
 
-  // Initialize random seed (use analog noise on an unused pin)
-  randomSeed(analogRead(A0) + micros());
+  // Initialize random seed (sample multiple reads for better entropy)
+  long seed = 0;
+  for (int i = 0; i < 8; i++) {
+    seed ^= analogRead(A0) << (i * 2);
+    delayMicroseconds(50);
+  }
+  randomSeed(seed ^ micros());
 }
 
 void loop() {
@@ -38,15 +46,17 @@ void loop() {
       outputVoltage = minVoltage;
       digitalWrite(LED_BUILTIN, LOW);
 
-      if (currentMillis - previousMillis >= offTime * 1000) {
+      // Normal transition OR safety timeout if lowTime is corrupted
+      if (currentMillis - previousMillis >= lowTime * 1000 ||
+          currentMillis - previousMillis >= (maxLowTime + safetyMargin) * 1000) {
         previousMillis = currentMillis;
 
-        // Randomize the hold time between minOnTime and maxOnTime
-        onTime = scaledRandom(minOnTime, maxOnTime);
+        // Randomize the high voltage duration
+        highTime = scaledRandom(minHighTime, maxHighTime);
         state = 1;  // Transition to Rising state
         #ifdef debug
-          Serial.print("Randomized Hold On Time: ");
-          Serial.print(onTime, 2);
+          Serial.print("Randomized High Time: ");
+          Serial.print(highTime, 2);
           Serial.println(" seconds");
         #endif
       }
@@ -66,16 +76,18 @@ void loop() {
       outputVoltage = maxVoltage;
       digitalWrite(LED_BUILTIN, HIGH);
 
-      if (currentMillis - previousMillis >= onTime * 1000) {
+      // Normal transition OR safety timeout if highTime is corrupted
+      if (currentMillis - previousMillis >= highTime * 1000 ||
+          currentMillis - previousMillis >= (maxHighTime + safetyMargin) * 1000) {
         previousMillis = currentMillis;
 
-        // Randomize the off time between minOffTime and maxOffTime
-        offTime = scaledRandom(minOffTime, maxOffTime);
+        // Randomize the low voltage duration
+        lowTime = scaledRandom(minLowTime, maxLowTime);
         state = 3;  // Transition to Falling state
 
         #ifdef debug
-          Serial.print("Randomized Hold Off Time: ");
-          Serial.print(offTime, 2);
+          Serial.print("Randomized Low Time: ");
+          Serial.print(lowTime, 2);
           Serial.println(" seconds");
         #endif
       }
@@ -90,6 +102,12 @@ void loop() {
       }
       outputVoltage = maxVoltage - (maxVoltage - minVoltage) * (1 - cos(progress * (M_PI / 2)));
       break;
+
+    default:  // Invalid state - reset to safe state
+      state = 0;
+      outputVoltage = minVoltage;
+      previousMillis = currentMillis;
+      break;
   }
 
   // Scale the output voltage to the DAC value range
@@ -99,12 +117,14 @@ void loop() {
   dacValue = constrain(dacValue, 0, dacResolution);
 
   // Output the voltage to the DAC pin
-  analogWrite(A14, dacValue);
+  analogWrite(outputPin, dacValue);
 
   #ifdef debug // Print the current output voltage for debugging
-    Serial.print("Output Voltage: ");
-    Serial.println(dacValue, 2); 
-    Serial.println(" V");
+    Serial.print("Output: ");
+    Serial.print(outputVoltage, 3);
+    Serial.print(" V (DAC: ");
+    Serial.print(dacValue);
+    Serial.println(")");
   #endif
 
   delay(10);  // Small delay for stability
