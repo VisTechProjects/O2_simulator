@@ -29,11 +29,11 @@
           <div class="grid">
             <div class="form-group">
               <label>Min Voltage (V)</label>
-              <input type="number" id="minVoltage" step="0.1" min="0" max="1" inputmode="decimal" title="Lean signal voltage (typical 0.1-0.2V)">
+              <input type="number" id="minVoltage" step="0.1" min="0" max="1" inputmode="decimal" value="0" title="Lean signal voltage (typical 0.1-0.2V)">
             </div>
             <div class="form-group">
               <label>Max Voltage (V)</label>
-              <input type="number" id="maxVoltage" step="0.1" min="0" max="1" inputmode="decimal" title="Rich signal voltage (typical 0.7-0.9V)">
+              <input type="number" id="maxVoltage" step="0.1" min="0" max="1" inputmode="decimal" value="0.8" title="Rich signal voltage (typical 0.7-0.9V)">
             </div>
           </div>
 
@@ -41,11 +41,11 @@
           <div class="grid">
             <div class="form-group">
               <label class="color-rise">Rise Time (Sec)</label>
-              <input type="number" id="riseTime" step="0.1" min="0.1" max="10" inputmode="decimal" title="Time to transition from low to high voltage">
+              <input type="number" id="riseTime" step="0.1" min="0.1" max="10" inputmode="decimal" value="0.7" title="Time to transition from low to high voltage">
             </div>
             <div class="form-group">
               <label class="color-fall">Fall Time (Sec)</label>
-              <input type="number" id="fallTime" step="0.1" min="0.1" max="10" inputmode="decimal" title="Time to transition from high to low voltage">
+              <input type="number" id="fallTime" step="0.1" min="0.1" max="10" inputmode="decimal" value="1.1" title="Time to transition from high to low voltage">
             </div>
           </div>
 
@@ -53,19 +53,19 @@
           <div class="grid">
             <div class="form-group">
               <label class="color-high">Min High (Sec)</label>
-              <input type="number" id="minHighTime" step="0.25" min="0.25" max="30" inputmode="decimal" title="Minimum time to hold at high voltage (random between min/max)">
+              <input type="number" id="minHighTime" step="0.25" min="0.25" max="15" inputmode="decimal" value="1.25" title="Minimum time to hold at high voltage (random between min/max)">
             </div>
             <div class="form-group">
               <label class="color-high">Max High (Sec)</label>
-              <input type="number" id="maxHighTime" step="0.25" min="0.25" max="30" inputmode="decimal" title="Maximum time to hold at high voltage (random between min/max)">
+              <input type="number" id="maxHighTime" step="0.25" min="0.25" max="15" inputmode="decimal" value="10" title="Maximum time to hold at high voltage (random between min/max)">
             </div>
             <div class="form-group">
               <label class="color-low">Min Low (Sec)</label>
-              <input type="number" id="minLowTime" step="0.25" min="0.25" max="30" inputmode="decimal" title="Minimum time to hold at low voltage (random between min/max)">
+              <input type="number" id="minLowTime" step="0.25" min="0.25" max="15" inputmode="decimal" value="1.25" title="Minimum time to hold at low voltage (random between min/max)">
             </div>
             <div class="form-group">
               <label class="color-low">Max Low (Sec)</label>
-              <input type="number" id="maxLowTime" step="0.25" min="0.25" max="30" inputmode="decimal" title="Maximum time to hold at low voltage (random between min/max)">
+              <input type="number" id="maxLowTime" step="0.25" min="0.25" max="15" inputmode="decimal" value="5" title="Maximum time to hold at low voltage (random between min/max)">
             </div>
           </div>
 

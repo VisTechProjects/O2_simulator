@@ -6,8 +6,8 @@ body {
   padding: 15px;
   background: #1a1a1a;
   color: #fff;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
+  overflow-y: auto;
 }
 
 h1 {
@@ -176,7 +176,6 @@ canvas {
 .settings-panel[open] .settings-content {
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 460px);
 }
 
 .settings-panel summary::-webkit-details-marker {
@@ -198,7 +197,7 @@ canvas {
 .settings-content {
   padding: 0 15px 15px 15px;
   display: none;
-  animation: slideDown 0.5s ease;
+  animation: slideDown 0.3s ease;
 }
 
 .settings-panel[open] .settings-content {
@@ -250,7 +249,7 @@ canvas {
 
 .settings-scroll {
   flex: 1;
-  overflow-y: auto;
+  overflow-y: scroll;
   padding-right: 5px;
 }
 
@@ -263,9 +262,78 @@ canvas {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: 10px;
+  padding: 12px 0 5px 0;
   border-top: 1px solid #444;
   margin-top: 10px;
+  gap: 8px;
+  background: #252525;
+}
+
+@media (max-width: 420px) {
+  h1 {
+    font-size: 1.25em;
+    margin: 10px 0 8px 0;
+  }
+  .status {
+    padding: 10px;
+    font-size: 1em;
+  }
+  .settings-panel {
+    margin-top: 8px;
+  }
+  .settings-panel summary {
+    padding: 10px 12px;
+    font-size: 1em;
+  }
+  .settings-content h2 {
+    font-size: 0.9em;
+    margin: 10px 0 6px 0;
+  }
+  .form-group {
+    margin: 5px 0;
+  }
+  label {
+    margin-bottom: 2px;
+    font-size: 0.85em;
+  }
+  input[type="number"] {
+    padding: 8px;
+    font-size: 15px;
+  }
+  .settings-footer {
+    gap: 8px;
+    padding-bottom: 10px;
+  }
+  .btn-firmware {
+    padding: 8px 12px;
+    font-size: 0.8em;
+  }
+  .btn-group-right button {
+    padding: 10px 14px;
+    font-size: 0.85em;
+  }
+  .graph-label {
+    margin: 4px 0 2px 0;
+    font-size: 0.75em;
+  }
+  canvas {
+    height: 80px;
+  }
+  .preset-buttons {
+    gap: 6px;
+  }
+  .btn-preset {
+    padding: 6px 12px;
+    font-size: 0.8em;
+  }
+  .config-buttons {
+    gap: 6px;
+  }
+  .btn-export, .btn-import {
+    padding: 0 12px;
+    height: 30px;
+    font-size: 0.8em;
+  }
 }
 
 .btn-group-right {
@@ -275,6 +343,10 @@ canvas {
 
 .btn-group-right button {
   margin: 0;
+}
+
+.btn-group-right button:disabled {
+  cursor: not-allowed;
 }
 
 .btn-firmware {
@@ -448,4 +520,46 @@ canvas {
 
 .toast-error {
   background: #e74c3c;
+}
+
+/* Desktop compact layout */
+@media (min-width: 421px) {
+  .form-group {
+    margin: 6px 0;
+  }
+  label {
+    margin-bottom: 3px;
+  }
+  h2 {
+    font-size: 1em;
+    margin: 12px 0 6px 0;
+  }
+  .settings-content h2 {
+    margin-top: 10px;
+  }
+  .grid {
+    gap: 8px;
+  }
+  .settings-panel {
+    margin-top: 10px;
+  }
+  .settings-panel summary {
+    padding: 10px 15px;
+  }
+  .settings-content {
+    padding: 0 12px 12px 12px;
+  }
+  .settings-footer {
+    padding: 10px 0 3px 0;
+    margin-top: 8px;
+  }
+  input[type="number"] {
+    padding: 8px;
+  }
+  .graph-label {
+    margin: 6px 0 2px 0;
+  }
+  canvas {
+    height: 80px;
+  }
 }

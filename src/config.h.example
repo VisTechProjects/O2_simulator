@@ -9,7 +9,7 @@
 #define WIFI_MODE "AP+STA"
 
 // Access Point mode settings (when WIFI_MODE is "AP")
-const char* AP_SSID = "O2_Simulator";
+const char* AP_SSID = "O2 Simulator";
 const char* AP_PASS = "";  // Empty = open network (no password)
 
 // Station mode settings (when WIFI_MODE is "STA")

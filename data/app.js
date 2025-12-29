@@ -1,4 +1,5 @@
 let config = {};
+let savedConfig = {}; // Track the last saved/loaded config
 let outputEnabled = true;
 const canvas = document.getElementById('waveform');
 const ctx = canvas.getContext('2d');
@@ -103,19 +104,53 @@ function loadConfig() {
   fetchWithRetry('/config')
     .then(r => r.json())
     .then(data => {
-      config = data;
-      document.getElementById('maxVoltage').value = data.maxVoltage;
-      document.getElementById('minVoltage').value = data.minVoltage;
-      document.getElementById('riseTime').value = data.riseTime;
-      document.getElementById('fallTime').value = data.fallTime;
-      document.getElementById('minHighTime').value = data.minHighTime;
-      document.getElementById('maxHighTime').value = data.maxHighTime;
-      document.getElementById('minLowTime').value = data.minLowTime;
-      document.getElementById('maxLowTime').value = data.maxLowTime;
-      outputEnabled = data.outputEnabled !== false;
-      updateToggleButton();
-      drawWaveform();
+      updateConfigUI(data);
     });
+}
+
+function updateConfigUI(data, isSaved = true) {
+  config = data;
+  if (isSaved) {
+    savedConfig = { ...data }; // Store as saved state
+  }
+  document.getElementById('maxVoltage').value = data.maxVoltage;
+  document.getElementById('minVoltage').value = data.minVoltage;
+  document.getElementById('riseTime').value = data.riseTime;
+  document.getElementById('fallTime').value = data.fallTime;
+  document.getElementById('minHighTime').value = data.minHighTime;
+  document.getElementById('maxHighTime').value = data.maxHighTime;
+  document.getElementById('minLowTime').value = data.minLowTime;
+  document.getElementById('maxLowTime').value = data.maxLowTime;
+  outputEnabled = data.outputEnabled !== false;
+  updateToggleButton();
+  drawWaveform();
+  updateButtonStates();
+}
+
+// Check if current form values differ from saved config
+function hasUnsavedChanges() {
+  const fields = ['maxVoltage', 'minVoltage', 'riseTime', 'fallTime', 'minHighTime', 'maxHighTime', 'minLowTime', 'maxLowTime'];
+  for (const field of fields) {
+    const current = parseFloat(document.getElementById(field).value);
+    const saved = savedConfig[field];
+    if (current !== saved) return true;
+  }
+  return false;
+}
+
+// Update Apply/Reset button states based on changes
+function updateButtonStates() {
+  const hasChanges = hasUnsavedChanges();
+  const applyBtn = document.querySelector('.btn-group-right button:last-child');
+  const resetBtn = document.querySelector('.btn-group-right .btn-secondary');
+  if (applyBtn) {
+    applyBtn.disabled = !hasChanges;
+    applyBtn.style.opacity = hasChanges ? '1' : '0.5';
+  }
+  if (resetBtn) {
+    resetBtn.disabled = !hasChanges;
+    resetBtn.style.opacity = hasChanges ? '1' : '0.5';
+  }
 }
 
 function updateToggleButton() {
@@ -143,12 +178,30 @@ function toggleOutput() {
     });
 }
 
+// Preset values (must match ESP32 presets)
+const presets = {
+  normal: { minVoltage: 0.0, maxVoltage: 0.8, riseTime: 0.7, fallTime: 1.1, minHighTime: 1.25, maxHighTime: 10, minLowTime: 1.25, maxLowTime: 5 },
+  aggressive: { minVoltage: 0.1, maxVoltage: 0.9, riseTime: 0.3, fallTime: 0.5, minHighTime: 0.5, maxHighTime: 2, minLowTime: 0.5, maxLowTime: 2 },
+  slow: { minVoltage: 0.0, maxVoltage: 0.7, riseTime: 2.0, fallTime: 2.5, minHighTime: 3, maxHighTime: 15, minLowTime: 3, maxLowTime: 10 }
+};
+
 function loadPreset(name) {
-  fetchWithRetry('/preset/' + name, { method: 'POST' })
-    .then(r => r.json())
-    .then(() => {
-      loadConfig();
-    });
+  // Only update UI with preset values - user must click Apply to send to ESP32
+  if (presets[name]) {
+    const preset = presets[name];
+    document.getElementById('maxVoltage').value = preset.maxVoltage;
+    document.getElementById('minVoltage').value = preset.minVoltage;
+    document.getElementById('riseTime').value = preset.riseTime;
+    document.getElementById('fallTime').value = preset.fallTime;
+    document.getElementById('minHighTime').value = preset.minHighTime;
+    document.getElementById('maxHighTime').value = preset.maxHighTime;
+    document.getElementById('minLowTime').value = preset.minLowTime;
+    document.getElementById('maxLowTime').value = preset.maxLowTime;
+    // Update preview waveform with new values
+    config = { ...config, ...preset };
+    drawWaveform();
+    updateButtonStates();
+  }
 }
 
 function importConfig(input) {
@@ -253,7 +306,9 @@ function applyConfig() {
   }).then(r => {
     if (r.ok) {
       config = data;
+      savedConfig = { ...data }; // Update saved state
       drawWaveform();
+      updateButtonStates();
       showToast('Settings saved');
     } else {
       showToast('Save failed', true);
@@ -548,6 +603,7 @@ document.querySelectorAll('input').forEach(el => {
     config.maxLowTime = parseFloat(document.getElementById('maxLowTime').value);
 
     drawWaveform();
+    updateButtonStates();
   });
 });
 
@@ -560,6 +616,8 @@ settingsPanel.addEventListener('click', (e) => {
     e.preventDefault();
     settingsContent.classList.add('closing');
     settingsPanel.classList.add('closing');
+    // Scroll to top immediately before closing
+    window.scrollTo({ top: 0, behavior: 'instant' });
     settingsContent.addEventListener('animationend', () => {
       settingsContent.classList.remove('closing');
       settingsPanel.classList.remove('closing');
@@ -567,3 +625,36 @@ settingsPanel.addEventListener('click', (e) => {
     }, { once: true });
   }
 });
+
+// Auto-size settings panel to fill available space
+function updateSettingsHeight() {
+  const panel = document.querySelector('.settings-panel');
+  const content = document.querySelector('.settings-content');
+  if (!panel || !content) return;
+
+  const stickyHeader = document.querySelector('.sticky-header');
+  const headerBottom = stickyHeader ? stickyHeader.getBoundingClientRect().bottom : 200;
+  const viewportHeight = window.innerHeight;
+  const summaryHeight = panel.querySelector('summary').offsetHeight;
+  const availableHeight = viewportHeight - headerBottom - summaryHeight - 30;
+  content.style.maxHeight = Math.max(150, availableHeight) + 'px';
+}
+
+// Update height on page load and resize
+updateSettingsHeight();
+window.addEventListener('resize', updateSettingsHeight);
+
+// Scroll to show settings when opened
+settingsPanel.addEventListener('toggle', () => {
+  if (settingsPanel.open) {
+    // Delay height calculation to let browser finish layout
+    setTimeout(() => {
+      updateSettingsHeight();
+      // Scroll the settings panel into view
+      settingsPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Recalculate after scroll settles
+      setTimeout(updateSettingsHeight, 350);
+    }, 50);
+  }
+});
+
