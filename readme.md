@@ -1,5 +1,8 @@
 # O2 Sensor Simulator - ESP32 Web Edition
 
+![Platform](https://img.shields.io/badge/platform-ESP32-blue)
+![PlatformIO](https://img.shields.io/badge/build-PlatformIO-orange)
+
 ## Description
 Deleted your catalytic converter for "off road use"? Have a P0420/P0430 check engine code? This project simulates downstream O2 sensor readings using an ESP32 with a web-based control interface. Works for single or multiple sensors (connect all sensors to simulator output).
 
