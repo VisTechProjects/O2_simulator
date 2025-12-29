@@ -1,6 +1,9 @@
 let config = {};
 let savedConfig = {}; // Track the last saved/loaded config
 let outputEnabled = true;
+let linkedTransition = false; // Track if rise/fall times are linked
+let linkedHigh = false; // Track if min/max High times are linked
+let linkedLow = false;  // Track if min/max Low times are linked
 const canvas = document.getElementById('waveform');
 const ctx = canvas.getContext('2d');
 const liveCanvas = document.getElementById('liveTrace');
@@ -123,8 +126,20 @@ function updateConfigUI(data, isSaved = true) {
   document.getElementById('maxLowTime').value = data.maxLowTime;
   outputEnabled = data.outputEnabled !== false;
   updateToggleButton();
+  // Reset all link states
+  resetLinkStates();
   drawWaveform();
   updateButtonStates();
+}
+
+// Reset all link buttons to unlinked state
+function resetLinkStates() {
+  linkedTransition = false;
+  linkedHigh = false;
+  linkedLow = false;
+  document.getElementById('linkTransition').classList.remove('linked');
+  document.getElementById('linkHigh').classList.remove('linked');
+  document.getElementById('linkLow').classList.remove('linked');
 }
 
 // Check if current form values differ from saved config
@@ -199,6 +214,66 @@ function loadPreset(name) {
     document.getElementById('maxLowTime').value = preset.maxLowTime;
     // Update preview waveform with new values
     config = { ...config, ...preset };
+    drawWaveform();
+    updateButtonStates();
+  }
+}
+
+// Toggle link between paired values
+function toggleLink(type) {
+  const btn = document.getElementById('link' + type);
+  if (type === 'Transition') {
+    linkedTransition = !linkedTransition;
+    btn.classList.toggle('linked', linkedTransition);
+    if (linkedTransition) {
+      // Sync to rise time when linking
+      const riseVal = document.getElementById('riseTime').value;
+      document.getElementById('fallTime').value = riseVal;
+      config.riseTime = parseFloat(riseVal);
+      config.fallTime = parseFloat(riseVal);
+    } else {
+      // Restore original saved values when unlinking
+      document.getElementById('riseTime').value = savedConfig.riseTime;
+      document.getElementById('fallTime').value = savedConfig.fallTime;
+      config.riseTime = savedConfig.riseTime;
+      config.fallTime = savedConfig.fallTime;
+    }
+    drawWaveform();
+    updateButtonStates();
+  } else if (type === 'High') {
+    linkedHigh = !linkedHigh;
+    btn.classList.toggle('linked', linkedHigh);
+    if (linkedHigh) {
+      // Sync to the min value when linking
+      const minVal = document.getElementById('minHighTime').value;
+      document.getElementById('maxHighTime').value = minVal;
+      config.maxHighTime = parseFloat(minVal);
+      config.minHighTime = parseFloat(minVal);
+    } else {
+      // Restore original saved values when unlinking
+      document.getElementById('minHighTime').value = savedConfig.minHighTime;
+      document.getElementById('maxHighTime').value = savedConfig.maxHighTime;
+      config.minHighTime = savedConfig.minHighTime;
+      config.maxHighTime = savedConfig.maxHighTime;
+    }
+    drawWaveform();
+    updateButtonStates();
+  } else if (type === 'Low') {
+    linkedLow = !linkedLow;
+    btn.classList.toggle('linked', linkedLow);
+    if (linkedLow) {
+      // Sync to the min value when linking
+      const minVal = document.getElementById('minLowTime').value;
+      document.getElementById('maxLowTime').value = minVal;
+      config.maxLowTime = parseFloat(minVal);
+      config.minLowTime = parseFloat(minVal);
+    } else {
+      // Restore original saved values when unlinking
+      document.getElementById('minLowTime').value = savedConfig.minLowTime;
+      document.getElementById('maxLowTime').value = savedConfig.maxLowTime;
+      config.minLowTime = savedConfig.minLowTime;
+      config.maxLowTime = savedConfig.maxLowTime;
+    }
     drawWaveform();
     updateButtonStates();
   }
@@ -571,23 +646,38 @@ document.querySelectorAll('input').forEach(el => {
   el.addEventListener('input', () => {
     const val = parseFloat(el.value);
 
-    // Auto-correct min/max pairs
+    // Sync linked values
+    if (el.id === 'riseTime' && linkedTransition) {
+      document.getElementById('fallTime').value = el.value;
+    } else if (el.id === 'fallTime' && linkedTransition) {
+      document.getElementById('riseTime').value = el.value;
+    } else if (el.id === 'minHighTime' && linkedHigh) {
+      document.getElementById('maxHighTime').value = el.value;
+    } else if (el.id === 'maxHighTime' && linkedHigh) {
+      document.getElementById('minHighTime').value = el.value;
+    } else if (el.id === 'minLowTime' && linkedLow) {
+      document.getElementById('maxLowTime').value = el.value;
+    } else if (el.id === 'maxLowTime' && linkedLow) {
+      document.getElementById('minLowTime').value = el.value;
+    }
+
+    // Auto-correct min/max pairs (only when not linked)
     if (el.id === 'minVoltage') {
       const maxEl = document.getElementById('maxVoltage');
       if (val > parseFloat(maxEl.value)) maxEl.value = val;
     } else if (el.id === 'maxVoltage') {
       const minEl = document.getElementById('minVoltage');
       if (val < parseFloat(minEl.value)) minEl.value = val;
-    } else if (el.id === 'minHighTime') {
+    } else if (el.id === 'minHighTime' && !linkedHigh) {
       const maxEl = document.getElementById('maxHighTime');
       if (val > parseFloat(maxEl.value)) maxEl.value = val;
-    } else if (el.id === 'maxHighTime') {
+    } else if (el.id === 'maxHighTime' && !linkedHigh) {
       const minEl = document.getElementById('minHighTime');
       if (val < parseFloat(minEl.value)) minEl.value = val;
-    } else if (el.id === 'minLowTime') {
+    } else if (el.id === 'minLowTime' && !linkedLow) {
       const maxEl = document.getElementById('maxLowTime');
       if (val > parseFloat(maxEl.value)) maxEl.value = val;
-    } else if (el.id === 'maxLowTime') {
+    } else if (el.id === 'maxLowTime' && !linkedLow) {
       const minEl = document.getElementById('minLowTime');
       if (val < parseFloat(minEl.value)) minEl.value = val;
     }

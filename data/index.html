@@ -26,11 +26,12 @@
       <div class="settings-content">
         <div class="settings-scroll">
           <h2>Voltage</h2>
-          <div class="grid">
+          <div class="linked-row">
             <div class="form-group">
               <label>Min Voltage (V)</label>
               <input type="number" id="minVoltage" step="0.1" min="0" max="1" inputmode="decimal" value="0" title="Lean signal voltage (typical 0.1-0.2V)">
             </div>
+            <span class="btn-link-spacer"></span>
             <div class="form-group">
               <label>Max Voltage (V)</label>
               <input type="number" id="maxVoltage" step="0.1" min="0" max="1" inputmode="decimal" value="0.8" title="Rich signal voltage (typical 0.7-0.9V)">
@@ -38,11 +39,12 @@
           </div>
 
           <h2>Transition Times</h2>
-          <div class="grid">
+          <div class="linked-row">
             <div class="form-group">
               <label class="color-rise">Rise Time (Sec)</label>
               <input type="number" id="riseTime" step="0.1" min="0.1" max="10" inputmode="decimal" value="0.7" title="Time to transition from low to high voltage">
             </div>
+            <button type="button" class="btn-link" id="linkTransition" onclick="toggleLink('Transition')" title="Link rise/fall times">&#x1F517;</button>
             <div class="form-group">
               <label class="color-fall">Fall Time (Sec)</label>
               <input type="number" id="fallTime" step="0.1" min="0.1" max="10" inputmode="decimal" value="1.1" title="Time to transition from high to low voltage">
@@ -50,22 +52,26 @@
           </div>
 
           <h2>Hold Times</h2>
-          <div class="grid">
+          <div class="linked-row">
             <div class="form-group">
               <label class="color-high">Min High (Sec)</label>
-              <input type="number" id="minHighTime" step="0.25" min="0.25" max="15" inputmode="decimal" value="1.25" title="Minimum time to hold at high voltage (random between min/max)">
+              <input type="number" id="minHighTime" step="0.25" min="0.25" max="15" inputmode="decimal" value="1.25" title="Minimum time to hold at high voltage">
             </div>
+            <button type="button" class="btn-link" id="linkHigh" onclick="toggleLink('High')" title="Link min/max values">&#x1F517;</button>
             <div class="form-group">
               <label class="color-high">Max High (Sec)</label>
-              <input type="number" id="maxHighTime" step="0.25" min="0.25" max="15" inputmode="decimal" value="10" title="Maximum time to hold at high voltage (random between min/max)">
+              <input type="number" id="maxHighTime" step="0.25" min="0.25" max="15" inputmode="decimal" value="10" title="Maximum time to hold at high voltage">
             </div>
+          </div>
+          <div class="linked-row">
             <div class="form-group">
               <label class="color-low">Min Low (Sec)</label>
-              <input type="number" id="minLowTime" step="0.25" min="0.25" max="15" inputmode="decimal" value="1.25" title="Minimum time to hold at low voltage (random between min/max)">
+              <input type="number" id="minLowTime" step="0.25" min="0.25" max="15" inputmode="decimal" value="1.25" title="Minimum time to hold at low voltage">
             </div>
+            <button type="button" class="btn-link" id="linkLow" onclick="toggleLink('Low')" title="Link min/max values">&#x1F517;</button>
             <div class="form-group">
               <label class="color-low">Max Low (Sec)</label>
-              <input type="number" id="maxLowTime" step="0.25" min="0.25" max="15" inputmode="decimal" value="5" title="Maximum time to hold at low voltage (random between min/max)">
+              <input type="number" id="maxLowTime" step="0.25" min="0.25" max="15" inputmode="decimal" value="5" title="Maximum time to hold at low voltage">
             </div>
           </div>
 
