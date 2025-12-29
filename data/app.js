@@ -195,9 +195,9 @@ function toggleOutput() {
 
 // Preset values (must match ESP32 presets)
 const presets = {
-  normal: { minVoltage: 0.0, maxVoltage: 0.8, riseTime: 0.7, fallTime: 1.1, minHighTime: 1.25, maxHighTime: 10, minLowTime: 1.25, maxLowTime: 5 },
-  aggressive: { minVoltage: 0.1, maxVoltage: 0.9, riseTime: 0.3, fallTime: 0.5, minHighTime: 0.5, maxHighTime: 2, minLowTime: 0.5, maxLowTime: 2 },
-  slow: { minVoltage: 0.0, maxVoltage: 0.7, riseTime: 2.0, fallTime: 2.5, minHighTime: 3, maxHighTime: 15, minLowTime: 3, maxLowTime: 10 }
+  normal: { minVoltage: 0.1, maxVoltage: 0.8, riseTime: 0.7, fallTime: 1.1, minHighTime: 1.25, maxHighTime: 10, minLowTime: 1.25, maxLowTime: 5 },
+  aggressive: { minVoltage: 0.1, maxVoltage: 0.9, riseTime: 0.3, fallTime: 0.5, minHighTime: 0.5, maxHighTime: 3, minLowTime: 0.5, maxLowTime: 2 },
+  slow: { minVoltage: 0.2, maxVoltage: 0.7, riseTime: 2.0, fallTime: 2.5, minHighTime: 3, maxHighTime: 15, minLowTime: 3, maxLowTime: 10 }
 };
 
 function loadPreset(name) {

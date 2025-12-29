@@ -582,8 +582,8 @@ void loop() {
   // Check for pending OTA reboot
   handleReboot();
 
-  // WiFi reconnect (only in STA mode)
-  if (String(WIFI_MODE) == "STA" && millis() - lastWifiCheck > WIFI_CHECK_INTERVAL) {
+  // WiFi reconnect (STA and AP+STA modes)
+  if ((String(WIFI_MODE) == "STA" || String(WIFI_MODE) == "AP+STA") && millis() - lastWifiCheck > WIFI_CHECK_INTERVAL) {
     lastWifiCheck = millis();
     if (WiFi.status() != WL_CONNECTED) {
       Serial.println("WiFi disconnected, reconnecting...");
@@ -593,7 +593,7 @@ void loop() {
   }
 
   // Periodic mDNS re-announcement (helps with client cache issues)
-  if (String(WIFI_MODE) == "STA" && WiFi.status() == WL_CONNECTED) {
+  if ((String(WIFI_MODE) == "STA" || String(WIFI_MODE) == "AP+STA") && WiFi.status() == WL_CONNECTED) {
     if (millis() - lastMdnsAnnounce > MDNS_ANNOUNCE_INTERVAL) {
       lastMdnsAnnounce = millis();
       MDNS.end();
