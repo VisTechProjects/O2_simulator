@@ -3,7 +3,7 @@
 ## Description
 Deleted your catalytic converter for "off road use"? Have a P0420/P0430 check engine code? This project simulates downstream O2 sensor readings using an ESP32 with a web-based control interface. Works for single or multiple sensors (connect all sensors to simulator output).
 
-![Web Interface](/page_preview.png)
+![Web Interface](page_preview.png)
 
 ## Features
 - **Web Interface** - Control and monitor via any browser (phone, tablet, laptop)
