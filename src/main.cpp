@@ -281,6 +281,10 @@ void setupWebServer() {
     JsonDocument doc;
     doc["version"] = FIRMWARE_VERSION;
     doc["outputEnabled"] = outputEnabled;
+    doc["state"] = state;
+    doc["stateMs"] = millis() - previousMillis;  // Time in current state
+    doc["holdTime"] = (state == 0 || state == 2) ? ((state == 0 ? lowTime : highTime) * 1000) : 0;
+    doc["voltage"] = outputVoltage;
     doc["wifiMode"] = WiFi.getMode() == WIFI_AP ? "AP" : "STA";
     doc["rssi"] = WiFi.getMode() == WIFI_STA ? WiFi.RSSI() : 0;
     doc["ip"] = WiFi.getMode() == WIFI_AP ? WiFi.softAPIP().toString() : WiFi.localIP().toString();

@@ -77,12 +77,32 @@ function exportConfig() {
     .catch(() => showToast('Export failed', true));
 }
 
-// Live trace data - 1000 points = 10 seconds of history (100 samples/sec)
-// Each entry is {v: voltage, s: state} for color-coding
-const traceData = [];
+// Live trace data - circular buffer for efficiency (no shift() needed)
+// 1000 points = 5 seconds of history at 200 samples/sec
 const maxPoints = 1000;
+const traceV = new Float32Array(maxPoints); // Voltage values
+const traceS = new Uint8Array(maxPoints);   // State values
+let traceHead = 0;  // Write position (oldest data)
+let traceCount = 0; // Number of valid samples (0 to maxPoints)
 const stateColors = ['#2196F3', '#FF9800', '#4CAF50', '#E91E63']; // Low, Rise, High, Fall
 let coloredTrace = true; // Toggle between colored and solid green
+
+// Helper to get array index from logical index (0 = oldest, traceCount-1 = newest)
+function traceIdx(i) {
+  return (traceHead + i) % maxPoints;
+}
+
+// Add a sample to the circular buffer
+function addTrace(v, s) {
+  const writeIdx = (traceHead + traceCount) % maxPoints;
+  traceV[writeIdx] = v;
+  traceS[writeIdx] = s;
+  if (traceCount < maxPoints) {
+    traceCount++;
+  } else {
+    traceHead = (traceHead + 1) % maxPoints; // Overwrite oldest
+  }
+}
 
 // Double-click live graph to toggle colored mode
 document.getElementById('liveTrace').addEventListener('dblclick', () => {
@@ -547,9 +567,9 @@ function drawLiveTrace() {
   liveCtx.fillText('.25', 3, 8 + (h - 16) * 0.75 + 4);
   liveCtx.fillText('0V', 3, h - 3);
 
-  if (traceData.length < 2) return;
+  if (traceCount < 2) return;
 
-  const voltToY = (v) => h - 8 - (v / 1.0 * (h - 16));
+  const graphHeight = h - 16;
   const graphWidth = w - 35;
   const step = graphWidth / (maxPoints - 1);
   const startX = 30;
@@ -557,32 +577,42 @@ function drawLiveTrace() {
   // Draw trace - colored or solid green based on toggle
   liveCtx.lineWidth = 2;
 
+  // Get first sample - direct array access, no object creation
+  let idx = traceIdx(0);
+  let v = traceV[idx];
+  let s = traceS[idx];
+  let y = h - 8 - (v * graphHeight);
+
   if (!coloredTrace) {
     // Simple solid green line
     liveCtx.strokeStyle = '#4CAF50';
     liveCtx.beginPath();
-    liveCtx.moveTo(startX, voltToY(traceData[0].v));
-    for (let i = 1; i < traceData.length; i++) {
-      liveCtx.lineTo(startX + i * step, voltToY(traceData[i].v));
+    liveCtx.moveTo(startX, y);
+    for (let i = 1; i < traceCount; i++) {
+      idx = traceIdx(i);
+      y = h - 8 - (traceV[idx] * graphHeight);
+      liveCtx.lineTo(startX + i * step, y);
     }
     liveCtx.stroke();
   } else {
     // Colored segments based on state
-    let currentState = traceData[0].s;
-    liveCtx.strokeStyle = stateColors[currentState] || '#4CAF50';
+    let curState = s;
+    liveCtx.strokeStyle = stateColors[curState] || '#4CAF50';
     liveCtx.beginPath();
-    liveCtx.moveTo(startX, voltToY(traceData[0].v));
+    liveCtx.moveTo(startX, y);
 
-    for (let i = 1; i < traceData.length; i++) {
+    for (let i = 1; i < traceCount; i++) {
+      idx = traceIdx(i);
+      v = traceV[idx];
+      s = traceS[idx];
       const x = startX + i * step;
-      const y = voltToY(traceData[i].v);
-      const s = traceData[i].s;
+      y = h - 8 - (v * graphHeight);
 
-      if (s !== currentState) {
+      if (s !== curState) {
         liveCtx.lineTo(x, y);
         liveCtx.stroke();
-        currentState = s;
-        liveCtx.strokeStyle = stateColors[currentState] || '#4CAF50';
+        curState = s;
+        liveCtx.strokeStyle = stateColors[curState] || '#4CAF50';
         liveCtx.beginPath();
         liveCtx.moveTo(x, y);
       } else {
@@ -593,72 +623,121 @@ function drawLiveTrace() {
   }
 }
 
-// Client-side animation with local state machine
+// Client-side animation with pre-buffered waveform
 let animationId = null;
 let lastAnimTime = 0;
-let currentState = 0;
-let stateStartTime = 0;
-let currentHoldTime = 2000; // Current hold duration in ms
-const samplesPerSecond = 200; // Must match ESP32's 5ms sample interval (1000/5 = 200)
+let sampleAccumulator = 0;
+let drawAccumulator = 0;
+const samplesPerSecond = 200; // Must match ESP32's 5ms sample interval
+const msPerSample = 1000 / samplesPerSecond; // 5ms per sample
+const drawInterval = 16; // ~60fps for smooth drawing
+
+// Pre-buffered waveform - generate ahead, playback is just array reads
+const waveBufferSize = 8000; // ~40 seconds of samples at 200/sec
+const waveBufferV = new Float32Array(waveBufferSize);
+const waveBufferS = new Uint8Array(waveBufferSize);
+let waveBufferLen = 0;
+let wavePlayIdx = 0;
+
+// Generate one complete cycle and append to buffer
+function generateCycle() {
+  const minV = config.minVoltage || 0;
+  const maxV = config.maxVoltage || 0.8;
+  const riseMs = (config.riseTime || 0.7) * 1000;
+  const fallMs = (config.fallTime || 1.1) * 1000;
+  const minHighMs = (config.minHighTime || 1.25) * 1000;
+  const maxHighMs = (config.maxHighTime || 10) * 1000;
+  const minLowMs = (config.minLowTime || 1.25) * 1000;
+  const maxLowMs = (config.maxLowTime || 5) * 1000;
+
+  // Random hold times for this cycle
+  const lowHoldMs = minLowMs + Math.random() * (maxLowMs - minLowMs);
+  const highHoldMs = minHighMs + Math.random() * (maxHighMs - minHighMs);
+
+  // Calculate samples for each phase
+  const lowSamples = Math.round(lowHoldMs / msPerSample);
+  const riseSamples = Math.round(riseMs / msPerSample);
+  const highSamples = Math.round(highHoldMs / msPerSample);
+  const fallSamples = Math.round(fallMs / msPerSample);
+
+  let idx = waveBufferLen;
+
+  // Low phase
+  for (let i = 0; i < lowSamples && idx < waveBufferSize; i++, idx++) {
+    waveBufferV[idx] = minV;
+    waveBufferS[idx] = 0;
+  }
+
+  // Rise phase
+  for (let i = 0; i < riseSamples && idx < waveBufferSize; i++, idx++) {
+    const p = i / riseSamples;
+    waveBufferV[idx] = minV + (maxV - minV) * Math.sin(p * Math.PI / 2);
+    waveBufferS[idx] = 1;
+  }
+
+  // High phase
+  for (let i = 0; i < highSamples && idx < waveBufferSize; i++, idx++) {
+    waveBufferV[idx] = maxV;
+    waveBufferS[idx] = 2;
+  }
+
+  // Fall phase
+  for (let i = 0; i < fallSamples && idx < waveBufferSize; i++, idx++) {
+    const p = i / fallSamples;
+    waveBufferV[idx] = maxV - (maxV - minV) * (1 - Math.cos(p * Math.PI / 2));
+    waveBufferS[idx] = 3;
+  }
+
+  waveBufferLen = idx;
+}
+
+// Ensure we have enough samples buffered ahead
+function ensureBuffer(needed) {
+  while (waveBufferLen - wavePlayIdx < needed + 400 && waveBufferLen < waveBufferSize) {
+    generateCycle();
+  }
+
+  // If buffer is getting full, shift data to reclaim space
+  if (wavePlayIdx > waveBufferSize / 2) {
+    const remaining = waveBufferLen - wavePlayIdx;
+    waveBufferV.copyWithin(0, wavePlayIdx, waveBufferLen);
+    waveBufferS.copyWithin(0, wavePlayIdx, waveBufferLen);
+    waveBufferLen = remaining;
+    wavePlayIdx = 0;
+  }
+}
 
 function animateTrace(timestamp) {
-  if (!lastAnimTime) lastAnimTime = timestamp;
+  if (!lastAnimTime) {
+    lastAnimTime = timestamp;
+    ensureBuffer(200);
+    return requestAnimationFrame(animateTrace);
+  }
+
   const elapsed = timestamp - lastAnimTime;
-  const samplesToAdd = Math.floor((elapsed / 1000) * samplesPerSecond);
+  lastAnimTime = timestamp;
+
+  sampleAccumulator += elapsed;
+  drawAccumulator += elapsed;
+
+  if (sampleAccumulator > 500) sampleAccumulator = 500;
+  if (drawAccumulator > 500) drawAccumulator = 500;
+
+  const samplesToAdd = Math.floor(sampleAccumulator / msPerSample);
 
   if (samplesToAdd > 0) {
-    const minV = config.minVoltage || 0;
-    const maxV = config.maxVoltage || 0.8;
-    const riseMs = (config.riseTime || 0.7) * 1000;
-    const fallMs = (config.fallTime || 1.1) * 1000;
-    const minHighMs = (config.minHighTime || 1.25) * 1000;
-    const maxHighMs = (config.maxHighTime || 10) * 1000;
-    const minLowMs = (config.minLowTime || 1.25) * 1000;
-    const maxLowMs = (config.maxLowTime || 5) * 1000;
+    sampleAccumulator -= samplesToAdd * msPerSample;
+    ensureBuffer(samplesToAdd);
 
-    for (let i = 0; i < samplesToAdd; i++) {
-      const now = performance.now();
-      const stateElapsed = now - stateStartTime;
-      let v;
-
-      // State machine - advance states when time is up
-      if (currentState === 0) { // Low
-        v = minV;
-        if (stateElapsed >= currentHoldTime) {
-          currentState = 1;
-          stateStartTime = now;
-          currentHoldTime = minHighMs + Math.random() * (maxHighMs - minHighMs);
-        }
-      } else if (currentState === 1) { // Rising
-        const progress = Math.min(stateElapsed / riseMs, 1);
-        v = minV + (maxV - minV) * Math.sin(progress * Math.PI / 2);
-        if (progress >= 1) {
-          currentState = 2;
-          stateStartTime = now;
-        }
-      } else if (currentState === 2) { // High
-        v = maxV;
-        if (stateElapsed >= currentHoldTime) {
-          currentState = 3;
-          stateStartTime = now;
-          currentHoldTime = minLowMs + Math.random() * (maxLowMs - minLowMs);
-        }
-      } else if (currentState === 3) { // Falling
-        const progress = Math.min(stateElapsed / fallMs, 1);
-        v = maxV - (maxV - minV) * (1 - Math.cos(progress * Math.PI / 2));
-        if (progress >= 1) {
-          currentState = 0;
-          stateStartTime = now;
-        }
-      } else {
-        v = minV;
-      }
-
-      traceData.push({v: v, s: currentState});
-      if (traceData.length > maxPoints) traceData.shift();
+    for (let i = 0; i < samplesToAdd && wavePlayIdx < waveBufferLen; i++) {
+      addTrace(waveBufferV[wavePlayIdx], waveBufferS[wavePlayIdx]);
+      wavePlayIdx++;
     }
-    lastAnimTime = timestamp;
-    drawLiveTrace();
+
+    if (drawAccumulator >= drawInterval) {
+      drawAccumulator = 0;
+      drawLiveTrace();
+    }
   }
 
   animationId = requestAnimationFrame(animateTrace);
@@ -667,26 +746,21 @@ function animateTrace(timestamp) {
 function startAnimation() {
   if (animationId) return;
 
-  // Sync with server before starting
+  waveBufferLen = 0;
+  wavePlayIdx = 0;
+
   fetch(apiBase + '/status')
     .then(r => r.json())
     .then(data => {
-      currentState = data.state;
-      stateStartTime = performance.now() - (data.stateMs || 0);
-      if (data.holdTime) currentHoldTime = data.holdTime;
       document.getElementById('voltage').textContent = data.voltage.toFixed(2);
-      animationId = requestAnimationFrame(animateTrace);
     })
-    .catch(() => {
-      // Start anyway if fetch fails
-      stateStartTime = performance.now();
-      animationId = requestAnimationFrame(animateTrace);
-    });
+    .catch(() => {});
+
+  animationId = requestAnimationFrame(animateTrace);
 }
 
-// Poll server for voltage display and state sync
+// Poll server for voltage display
 let fetchInProgress = false;
-let lastServerState = -1;
 
 function updateVoltage() {
   if (fetchInProgress) return;
@@ -696,14 +770,6 @@ function updateVoltage() {
     .then(r => r.json())
     .then(data => {
       document.getElementById('voltage').textContent = data.voltage.toFixed(2);
-
-      // Sync state with server on state change
-      if (data.state !== lastServerState) {
-        lastServerState = data.state;
-        currentState = data.state;
-        stateStartTime = performance.now() - (data.stateMs || 0);
-        if (data.holdTime) currentHoldTime = data.holdTime;
-      }
     })
     .catch(() => {})
     .finally(() => { fetchInProgress = false; });
@@ -718,7 +784,7 @@ initApiBase().then(() => {
   loadConfig();
   loadStatus();
   startAnimation();
-  setInterval(updateVoltage, 100);
+  setInterval(updateVoltage, 500); // Reduced from 100ms to ease GC pressure
 });
 
 // Live preview on input change with auto-correction
