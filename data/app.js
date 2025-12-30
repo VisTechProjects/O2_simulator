@@ -204,6 +204,8 @@ function loadPreset(name) {
   // Only update UI with preset values - user must click Apply to send to ESP32
   if (presets[name]) {
     const preset = presets[name];
+    // Reset link states so preset values aren't overwritten
+    resetLinkStates();
     document.getElementById('maxVoltage').value = preset.maxVoltage;
     document.getElementById('minVoltage').value = preset.minVoltage;
     document.getElementById('riseTime').value = preset.riseTime;
@@ -374,21 +376,23 @@ function applyConfig() {
     maxLowTime: parseFloat(document.getElementById('maxLowTime').value)
   };
 
+  // Optimistic UI - update immediately
+  config = data;
+  savedConfig = { ...data };
+  drawWaveform();
+  updateButtonStates();
+  showToast('Settings saved');
+
+  // Send to server in background
   fetchWithRetry('/config', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(data)
   }).then(r => {
-    if (r.ok) {
-      config = data;
-      savedConfig = { ...data }; // Update saved state
-      drawWaveform();
-      updateButtonStates();
-      showToast('Settings saved');
-    } else {
-      showToast('Save failed', true);
+    if (!r.ok) {
+      showToast('Save failed - reload to restore', true);
     }
-  }).catch(() => showToast('Save failed', true));
+  }).catch(() => showToast('Save failed - reload to restore', true));
 }
 
 function drawWaveform() {
@@ -417,12 +421,17 @@ function drawWaveform() {
   ctx.fillText('.25', 3, 10 + (h - 20) * 0.75 + 4);
   ctx.fillText('0V', 3, h - 3);
 
-  const minV = config.minVoltage || 0;
-  const maxV = config.maxVoltage || 0.8;
-  const rise = (config.riseTime || 0.7) * 25;
-  const fall = (config.fallTime || 1.1) * 25;
-  const highT = ((config.minHighTime || 1.25) + (config.maxHighTime || 10)) / 2 * 12;
-  const lowT = ((config.minLowTime || 1.25) + (config.maxLowTime || 5)) / 2 * 12;
+  const minV = config.minVoltage ?? 0;
+  const maxV = config.maxVoltage ?? 0.8;
+  const riseT = config.riseTime ?? 0.7;
+  const fallT = config.fallTime ?? 1.1;
+  const highT = config.minHighTime ?? 1.25;
+  const lowT = config.minLowTime ?? 1.25;
+
+  // Match live trace exactly: same graphWidth and step calculation
+  const graphWidth = w - 35; // Same as live trace
+  const step = graphWidth / (maxPoints - 1); // Same step as live trace
+  const pxPerSec = step * samplesPerSecond; // Convert to pixels per second
 
   const voltToY = (v) => h - 10 - (v / 1.0 * (h - 20));
 
@@ -436,53 +445,64 @@ function drawWaveform() {
 
   ctx.lineWidth = 2;
   let x = 30;
+  let isFirstCycle = true;
 
-  // Low hold (start)
-  ctx.strokeStyle = colors.low;
-  ctx.beginPath();
-  ctx.moveTo(x, voltToY(minV));
-  x += lowT / 2;
-  ctx.lineTo(x, voltToY(minV));
-  ctx.stroke();
+  // Draw cycles: first one starts with short lead-in, then full low times after
+  while (x < w - 5) {
+    // Low hold - short lead-in for first cycle, full duration after
+    const thisLowT = isFirstCycle ? 0.2 : lowT;
+    ctx.strokeStyle = colors.low;
+    ctx.beginPath();
+    ctx.moveTo(x, voltToY(minV));
+    const lowEnd = Math.min(x + thisLowT * pxPerSec, w - 5);
+    ctx.lineTo(lowEnd, voltToY(minV));
+    ctx.stroke();
+    x += thisLowT * pxPerSec;
+    if (x >= w - 5) break;
 
-  // Rise
-  ctx.strokeStyle = colors.rise;
-  ctx.beginPath();
-  ctx.moveTo(x, voltToY(minV));
-  for (let i = 0; i <= 20; i++) {
-    let p = i / 20;
-    let v = minV + (maxV - minV) * Math.sin(p * Math.PI / 2);
-    ctx.lineTo(x + rise * p, voltToY(v));
+    // Rise - same formula as ESP32: sin(p * PI/2)
+    const risePoints = Math.max(40, Math.ceil(riseT * pxPerSec));
+    ctx.strokeStyle = colors.rise;
+    ctx.beginPath();
+    ctx.moveTo(x, voltToY(minV));
+    for (let i = 0; i <= risePoints; i++) {
+      let p = i / risePoints;
+      let px = x + riseT * pxPerSec * p;
+      if (px > w - 5) break;
+      let v = minV + (maxV - minV) * Math.sin(p * Math.PI / 2);
+      ctx.lineTo(px, voltToY(v));
+    }
+    ctx.stroke();
+    x += riseT * pxPerSec;
+    if (x >= w - 5) break;
+
+    // High hold
+    ctx.strokeStyle = colors.high;
+    ctx.beginPath();
+    ctx.moveTo(x, voltToY(maxV));
+    const highEnd = Math.min(x + highT * pxPerSec, w - 5);
+    ctx.lineTo(highEnd, voltToY(maxV));
+    ctx.stroke();
+    x += highT * pxPerSec;
+    if (x >= w - 5) break;
+
+    // Fall - same formula as ESP32: 1 - cos(p * PI/2)
+    const fallPoints = Math.max(40, Math.ceil(fallT * pxPerSec));
+    ctx.strokeStyle = colors.fall;
+    ctx.beginPath();
+    ctx.moveTo(x, voltToY(maxV));
+    for (let i = 0; i <= fallPoints; i++) {
+      let p = i / fallPoints;
+      let px = x + fallT * pxPerSec * p;
+      if (px > w - 5) break;
+      let v = maxV - (maxV - minV) * (1 - Math.cos(p * Math.PI / 2));
+      ctx.lineTo(px, voltToY(v));
+    }
+    ctx.stroke();
+    x += fallT * pxPerSec;
+
+    isFirstCycle = false;
   }
-  ctx.stroke();
-  x += rise;
-
-  // High hold
-  ctx.strokeStyle = colors.high;
-  ctx.beginPath();
-  ctx.moveTo(x, voltToY(maxV));
-  ctx.lineTo(x + highT, voltToY(maxV));
-  ctx.stroke();
-  x += highT;
-
-  // Fall
-  ctx.strokeStyle = colors.fall;
-  ctx.beginPath();
-  ctx.moveTo(x, voltToY(maxV));
-  for (let i = 0; i <= 20; i++) {
-    let p = i / 20;
-    let v = maxV - (maxV - minV) * (1 - Math.cos(p * Math.PI / 2));
-    ctx.lineTo(x + fall * p, voltToY(v));
-  }
-  ctx.stroke();
-  x += fall;
-
-  // Low (end)
-  ctx.strokeStyle = colors.low;
-  ctx.beginPath();
-  ctx.moveTo(x, voltToY(minV));
-  ctx.lineTo(Math.min(x + lowT, w - 5), voltToY(minV));
-  ctx.stroke();
 
   // Legend
   ctx.font = '9px sans-serif';
@@ -573,61 +593,120 @@ function drawLiveTrace() {
   }
 }
 
-let lastCounter = null;
+// Client-side animation with local state machine
+let animationId = null;
+let lastAnimTime = 0;
+let currentState = 0;
+let stateStartTime = 0;
+let currentHoldTime = 2000; // Current hold duration in ms
+const samplesPerSecond = 200; // Must match ESP32's 5ms sample interval (1000/5 = 200)
 
-function updateVoltage() {
-  // Fetch buffered history from ESP32 (with retry for mDNS issues)
-  fetchWithRetry('/history')
-    .then(r => r.json())
-    .then(response => {
-      const history = response.data;
-      const states = response.state || [];
-      const counter = response.counter;
+function animateTrace(timestamp) {
+  if (!lastAnimTime) lastAnimTime = timestamp;
+  const elapsed = timestamp - lastAnimTime;
+  const samplesToAdd = Math.floor((elapsed / 1000) * samplesPerSecond);
 
-      if (lastCounter === null) {
-        // First fetch - just take latest sample
-        traceData.push({v: history[history.length - 1], s: states[states.length - 1] || 0});
-      } else {
-        // Calculate how many new samples since last fetch
-        const newSamples = counter - lastCounter;
+  if (samplesToAdd > 0) {
+    const minV = config.minVoltage || 0;
+    const maxV = config.maxVoltage || 0.8;
+    const riseMs = (config.riseTime || 0.7) * 1000;
+    const fallMs = (config.fallTime || 1.1) * 1000;
+    const minHighMs = (config.minHighTime || 1.25) * 1000;
+    const maxHighMs = (config.maxHighTime || 10) * 1000;
+    const minLowMs = (config.minLowTime || 1.25) * 1000;
+    const maxLowMs = (config.maxLowTime || 5) * 1000;
 
-        if (newSamples > 0 && newSamples <= 100) {
-          // Add only the new samples (from end of buffer)
-          for (let i = 100 - newSamples; i < 100; i++) {
-            traceData.push({v: history[i], s: states[i] || 0});
-            if (traceData.length > maxPoints) {
-              traceData.shift();
-            }
-          }
-        } else if (newSamples > 100) {
-          // Missed some samples, add all 100
-          for (let i = 0; i < history.length; i++) {
-            traceData.push({v: history[i], s: states[i] || 0});
-            if (traceData.length > maxPoints) {
-              traceData.shift();
-            }
-          }
+    for (let i = 0; i < samplesToAdd; i++) {
+      const now = performance.now();
+      const stateElapsed = now - stateStartTime;
+      let v;
+
+      // State machine - advance states when time is up
+      if (currentState === 0) { // Low
+        v = minV;
+        if (stateElapsed >= currentHoldTime) {
+          currentState = 1;
+          stateStartTime = now;
+          currentHoldTime = minHighMs + Math.random() * (maxHighMs - minHighMs);
         }
-        // If newSamples <= 0, no new data yet
+      } else if (currentState === 1) { // Rising
+        const progress = Math.min(stateElapsed / riseMs, 1);
+        v = minV + (maxV - minV) * Math.sin(progress * Math.PI / 2);
+        if (progress >= 1) {
+          currentState = 2;
+          stateStartTime = now;
+        }
+      } else if (currentState === 2) { // High
+        v = maxV;
+        if (stateElapsed >= currentHoldTime) {
+          currentState = 3;
+          stateStartTime = now;
+          currentHoldTime = minLowMs + Math.random() * (maxLowMs - minLowMs);
+        }
+      } else if (currentState === 3) { // Falling
+        const progress = Math.min(stateElapsed / fallMs, 1);
+        v = maxV - (maxV - minV) * (1 - Math.cos(progress * Math.PI / 2));
+        if (progress >= 1) {
+          currentState = 0;
+          stateStartTime = now;
+        }
+      } else {
+        v = minV;
       }
 
-      lastCounter = counter;
+      traceData.push({v: v, s: currentState});
+      if (traceData.length > maxPoints) traceData.shift();
+    }
+    lastAnimTime = timestamp;
+    drawLiveTrace();
+  }
 
-      // Update voltage display with latest value
-      const latest = history[history.length - 1];
-      document.getElementById('voltage').textContent = latest.toFixed(2);
+  animationId = requestAnimationFrame(animateTrace);
+}
 
-      drawLiveTrace();
+function startAnimation() {
+  if (animationId) return;
+
+  // Sync with server before starting
+  fetch(apiBase + '/status')
+    .then(r => r.json())
+    .then(data => {
+      currentState = data.state;
+      stateStartTime = performance.now() - (data.stateMs || 0);
+      if (data.holdTime) currentHoldTime = data.holdTime;
+      document.getElementById('voltage').textContent = data.voltage.toFixed(2);
+      animationId = requestAnimationFrame(animateTrace);
     })
     .catch(() => {
-      // Fallback to single voltage if history fails (also with retry)
-      fetchWithRetry('/voltage')
-        .then(r => r.text())
-        .then(v => {
-          document.getElementById('voltage').textContent = parseFloat(v).toFixed(2);
-        })
-        .catch(() => {}); // Silent fail after all retries
+      // Start anyway if fetch fails
+      stateStartTime = performance.now();
+      animationId = requestAnimationFrame(animateTrace);
     });
+}
+
+// Poll server for voltage display and state sync
+let fetchInProgress = false;
+let lastServerState = -1;
+
+function updateVoltage() {
+  if (fetchInProgress) return;
+  fetchInProgress = true;
+
+  fetch(apiBase + '/status')
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('voltage').textContent = data.voltage.toFixed(2);
+
+      // Sync state with server on state change
+      if (data.state !== lastServerState) {
+        lastServerState = data.state;
+        currentState = data.state;
+        stateStartTime = performance.now() - (data.stateMs || 0);
+        if (data.holdTime) currentHoldTime = data.holdTime;
+      }
+    })
+    .catch(() => {})
+    .finally(() => { fetchInProgress = false; });
 }
 
 // Initialize
@@ -638,7 +717,8 @@ resizeCanvas();
 initApiBase().then(() => {
   loadConfig();
   loadStatus();
-  setInterval(updateVoltage, 750);
+  startAnimation();
+  setInterval(updateVoltage, 100);
 });
 
 // Live preview on input change with auto-correction
