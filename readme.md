@@ -45,6 +45,7 @@ Deleted your catalytic converter for "off road use"? Have a P0420/P0430 check en
 
 4. **Access the web interface:**
    - Via mDNS: `http://o2sim.local`
+   - Via AP hotspot: `http://192.168.4.1`
    - Or check serial monitor for IP address
 
 ## WiFi Modes
