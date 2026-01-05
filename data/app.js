@@ -124,7 +124,7 @@ function resizeCanvas() {
 }
 
 function loadConfig() {
-  fetchWithRetry('/config')
+  return fetchWithRetry('/config')
     .then(r => r.json())
     .then(data => {
       updateConfigUI(data);
@@ -727,12 +727,24 @@ function animateTrace(timestamp) {
 
   if (samplesToAdd > 0) {
     sampleAccumulator -= samplesToAdd * msPerSample;
-    ensureBuffer(samplesToAdd);
 
-    for (let i = 0; i < samplesToAdd && wavePlayIdx < waveBufferLen; i++) {
-      addTrace(waveBufferV[wavePlayIdx], waveBufferS[wavePlayIdx]);
-      wavePlayIdx++;
+    let lastV = 0;
+    if (outputEnabled) {
+      ensureBuffer(samplesToAdd);
+      for (let i = 0; i < samplesToAdd && wavePlayIdx < waveBufferLen; i++) {
+        lastV = waveBufferV[wavePlayIdx];
+        addTrace(lastV, waveBufferS[wavePlayIdx]);
+        wavePlayIdx++;
+      }
+    } else {
+      // Output disabled - show 0V
+      for (let i = 0; i < samplesToAdd; i++) {
+        addTrace(0, 0);
+      }
     }
+
+    // Update voltage display to match the chart
+    document.getElementById('voltage').textContent = lastV.toFixed(2);
 
     if (drawAccumulator >= drawInterval) {
       drawAccumulator = 0;
@@ -749,31 +761,11 @@ function startAnimation() {
   waveBufferLen = 0;
   wavePlayIdx = 0;
 
-  fetch(apiBase + '/status')
-    .then(r => r.json())
-    .then(data => {
-      document.getElementById('voltage').textContent = data.voltage.toFixed(2);
-    })
-    .catch(() => {});
-
   animationId = requestAnimationFrame(animateTrace);
 }
 
-// Poll server for voltage display
-let fetchInProgress = false;
-
-function updateVoltage() {
-  if (fetchInProgress) return;
-  fetchInProgress = true;
-
-  fetch(apiBase + '/status')
-    .then(r => r.json())
-    .then(data => {
-      document.getElementById('voltage').textContent = data.voltage.toFixed(2);
-    })
-    .catch(() => {})
-    .finally(() => { fetchInProgress = false; });
-}
+// No-op for compatibility (voltage updates from animation now)
+function updateVoltage() {}
 
 // Initialize
 window.addEventListener('resize', resizeCanvas);
@@ -781,10 +773,11 @@ resizeCanvas();
 
 // Init API base (get IP), then start everything
 initApiBase().then(() => {
-  loadConfig();
   loadStatus();
-  startAnimation();
-  setInterval(updateVoltage, 500); // Reduced from 100ms to ease GC pressure
+  // Wait for config before starting animation (so first cycle uses correct values)
+  loadConfig().then(() => {
+    startAnimation();
+  });
 });
 
 // Live preview on input change with auto-correction
@@ -873,7 +866,7 @@ function updateSettingsHeight() {
   const viewportHeight = window.innerHeight;
   const summaryHeight = panel.querySelector('summary').offsetHeight;
   const availableHeight = viewportHeight - headerBottom - summaryHeight - 30;
-  content.style.maxHeight = Math.max(150, availableHeight) + 'px';
+  content.style.maxHeight = Math.max(350, availableHeight) + 'px';
 }
 
 // Update height on page load and resize

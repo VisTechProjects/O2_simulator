@@ -104,6 +104,12 @@ canvas {
   margin: 10px 0 3px 0;
 }
 
+.graph-note {
+  font-size: 0.85em;
+  color: #555;
+  font-style: italic;
+}
+
 .status {
   display: flex;
   align-items: baseline;
