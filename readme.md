@@ -19,10 +19,16 @@ Deleted your catalytic converter for "off road use"? Have a P0420/P0430 check en
 - **Output Toggle** - Enable/disable output with one tap
 - **Export/Import** - Backup and restore configurations as JSON
 
+## Reliability
+- **Dual-core isolation** - Signal generation runs on Core 0, web server on Core 1. Web traffic cannot interrupt or delay signal output.
+- **Watchdog timer** - Both cores monitored with 5-second hardware watchdog. Auto-reboots if either core hangs.
+- **Brownout protection** - ESP32's built-in brownout detector cleanly resets during voltage dips (e.g. cold cranking) instead of locking up.
+- **Hardware RNG** - Thread-safe random number generation using ESP32's hardware entropy source.
+
 ## Hardware
 - **ESP32** dev board (any variant with DAC)
 - **Output Pin**: GPIO25 (DAC1)
-- Connect output to downstream O2 sensor signal wire
+- Connect output to downstream O2 sensor signal wire(s) - works for single or multiple sensors
 
 ## Quick Start
 

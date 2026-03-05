@@ -11,7 +11,7 @@
 #include "ota_updater.h"
 
 // Watchdog timeout (seconds) - reboots if main loop hangs
-#define WDT_TIMEOUT 30
+#define WDT_TIMEOUT 5
 
 // Firmware version
 #define FIRMWARE_VERSION "1.0.0"
@@ -153,16 +153,20 @@ bool loadConfigFromSPIFFS() {
 // Task handles
 TaskHandle_t signalTask;
 
-// Random with nonlinear distribution
+// Random with nonlinear distribution (uses hardware RNG, thread-safe)
 float scaledRandom(float minVal, float maxVal) {
-  float r = random(1000) / 1000.0;
+  float r = (esp_random() % 1000) / 1000.0;
   r = r * r;
   return minVal + (maxVal - minVal) * r;
 }
 
 // Signal generation task (runs on Core 0)
 void signalLoop(void* parameter) {
+  // Add this task to watchdog - reboots if signal generation hangs
+  esp_task_wdt_add(NULL);
+
   for (;;) {
+    esp_task_wdt_reset();
     unsigned long currentMillis = millis();
     float progress;
 
@@ -178,7 +182,7 @@ void signalLoop(void* parameter) {
         break;
 
       case 1:  // Rising state
-        progress = (currentMillis - previousMillis) / (config.riseTime * 1000.0);
+        progress = (currentMillis - previousMillis) / (max(config.riseTime, 0.01f) * 1000.0);
         if (progress >= 1.0) {
           progress = 1.0;
           previousMillis = currentMillis;
@@ -198,7 +202,7 @@ void signalLoop(void* parameter) {
         break;
 
       case 3:  // Falling state
-        progress = (currentMillis - previousMillis) / (config.fallTime * 1000.0);
+        progress = (currentMillis - previousMillis) / (max(config.fallTime, 0.01f) * 1000.0);
         if (progress >= 1.0) {
           progress = 1.0;
           previousMillis = currentMillis;
@@ -558,8 +562,9 @@ void setup() {
   // Setup web server
   setupWebServer();
 
-  // Random seed (use micros + ESP MAC for entropy, avoid ADC2 which conflicts with WiFi)
-  randomSeed(micros() ^ ESP.getEfuseMac());
+  // Initialize watchdog timer before starting signal task (avoids race condition)
+  esp_task_wdt_init(WDT_TIMEOUT, true);  // true = reboot on timeout
+  esp_task_wdt_add(NULL);  // Add current task (main loop) to watchdog
 
   // Start signal generation on Core 0
   xTaskCreatePinnedToCore(
@@ -567,14 +572,10 @@ void setup() {
     "SignalTask",
     4096,
     NULL,
-    1,
+    5,  // Priority 5 - higher than WiFi housekeeping, ensures stable signal
     &signalTask,
     0  // Core 0
   );
-
-  // Initialize watchdog timer
-  esp_task_wdt_init(WDT_TIMEOUT, true);  // true = reboot on timeout
-  esp_task_wdt_add(NULL);  // Add current task (main loop) to watchdog
 
   Serial.println("O2 Simulator started");
 }

@@ -5,13 +5,9 @@
 #include <ESPAsyncWebServer.h>
 #include <Arduino.h>
 #include <SPIFFS.h>
-#include <esp_task_wdt.h>
 
-// DAC output pin (must match config.h)
-#define OTA_OUTPUT_PIN 25
-
-// Track if watchdog was disabled for OTA
-static bool wdtDisabledForOTA = false;
+// Output enabled flag from main.cpp
+extern volatile bool outputEnabled;
 
 bool shouldReboot = false;
 unsigned long rebootTime = 0;
@@ -63,12 +59,8 @@ void setupOTA(AsyncWebServer &server)
         rebootTime = millis() + 3000;
       }
 
-      // Re-enable watchdog after OTA completes (success or failure)
-      if (wdtDisabledForOTA) {
-        esp_task_wdt_add(NULL);
-        wdtDisabledForOTA = false;
-        Serial.println("[OTA] Watchdog re-enabled");
-      }
+      // Re-enable output after OTA completes (will take effect after reboot anyway)
+      outputEnabled = true;
 
       uploadedFilename.clear();
       invalidFile = otaError = false;
@@ -82,13 +74,8 @@ void setupOTA(AsyncWebServer &server)
         otaError = false;
         uploadedFilename = filename;
 
-        // Disable watchdog during OTA to prevent timeout during long uploads
-        esp_task_wdt_delete(NULL);
-        wdtDisabledForOTA = true;
-        Serial.println("[OTA] Watchdog disabled for update");
-
-        // Force output to 0V for safety during update
-        dacWrite(OTA_OUTPUT_PIN, 0);
+        // Disable signal output during update (signal task will hold at 0V)
+        outputEnabled = false;
         Serial.println("[OTA] Output disabled for safety");
 
         size_t total = req->contentLength();
