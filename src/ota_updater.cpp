@@ -6,9 +6,6 @@
 #include <Arduino.h>
 #include <SPIFFS.h>
 
-// Output enabled flag from main.cpp
-extern volatile bool outputEnabled;
-
 bool shouldReboot = false;
 unsigned long rebootTime = 0;
 
@@ -59,9 +56,6 @@ void setupOTA(AsyncWebServer &server)
         rebootTime = millis() + 3000;
       }
 
-      // Re-enable output after OTA completes (will take effect after reboot anyway)
-      outputEnabled = true;
-
       uploadedFilename.clear();
       invalidFile = otaError = false;
     },
@@ -73,10 +67,6 @@ void setupOTA(AsyncWebServer &server)
         invalidFile = false;
         otaError = false;
         uploadedFilename = filename;
-
-        // Disable signal output during update (signal task will hold at 0V)
-        outputEnabled = false;
-        Serial.println("[OTA] Output disabled for safety");
 
         size_t total = req->contentLength();
         Serial.printf("[OTA] Upload start: %s (total %u bytes)\n", filename.c_str(), total);
